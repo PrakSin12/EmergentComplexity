@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emergent Complexity: a cellular automaton lab</title>
+<style>
+:root{--bg:#100d09;--panel:#17130d;--panel2:#1d1811;--line:#392f1f;--amber:#ffb000;--dim:#a87400;--teal:#4fd6c4;--off:#221c13;--text:#ecdfc4;--mute:#9c8f74;--red:#ff6b57;
+--mono:"IBM Plex Mono",Consolas,Menlo,monospace;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.55 var(--serif)}
+a{color:var(--teal)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 1.5rem}
+header{padding:2.4rem 0 1.4rem;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:2.1rem;font-weight:600}
+h2{font-size:1.4rem;margin:2.6rem 0 .6rem;font-weight:600}
+.sub{color:var(--mute);max-width:62ch;margin:.3rem 0 0}
+.layout{display:grid;grid-template-columns:1fr 330px;gap:1.4rem;margin-top:1.4rem;align-items:start}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:1rem}
+canvas{display:block;width:100%;background:var(--off);border:1px solid var(--line);cursor:crosshair;touch-action:none;image-rendering:pixelated}
+.row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.8rem;font:.78rem var(--mono)}
+button{font:.78rem var(--mono);background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:3px;padding:.45rem .75rem;cursor:pointer}
+button:hover{border-color:var(--dim);color:var(--amber)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+button.on{background:rgba(255,176,0,.14);border-color:var(--amber);color:var(--amber)}
+button.on.s{background:rgba(79,214,196,.14);border-color:var(--teal);color:var(--teal)}
+label{display:flex;align-items:center;gap:.5rem;font:.78rem var(--mono);color:var(--mute)}
+input[type=range]{accent-color:var(--amber);width:110px}
+.counts{display:flex;gap:.3rem;margin:.3rem 0 .9rem}
+.counts button{width:2rem;padding:.4rem 0;text-align:center}
+.side h3{margin:.2rem 0 0;font:600 .85rem var(--mono);color:var(--amber)}
+.stats{font:.8rem var(--mono);color:var(--mute);display:flex;gap:1rem;flex-wrap:wrap;margin-top:.7rem}
+.stats b{color:var(--text);font-weight:500}
+#spark{height:56px;margin-top:.6rem;cursor:default}
+#out{font:.8rem var(--mono);margin-top:.8rem;min-height:3rem}
+.bar{display:flex;height:16px;border:1px solid var(--line);margin:.4rem 0}
+.bar i{display:block;height:100%}
+.sw{display:inline-block;width:.7rem;height:.7rem;margin-right:.3rem;vertical-align:middle}
+dl{display:grid;grid-template-columns:auto 1fr;gap:.2rem 1rem;font-size:.95rem;margin:0}
+dt{font:.82rem var(--mono);color:var(--amber)}dd{margin:0;color:var(--mute)}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:1rem}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);padding:.7rem}
+figure img{width:100%;display:block;background:#fff}
+figcaption{font-size:.88rem;color:var(--mute);margin-top:.5rem}
+footer{margin:3rem 0;color:var(--mute);font-size:.9rem}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>Emergent Complexity: a cellular automaton lab</h1>
+<p class="sub">Draw on the grid, edit the birth and survival rules, add noise, and test how a rule behaves across many random starts.</p>
+</div></header>
+
+<main class="wrap">
+<div class="layout">
+  <section class="box">
+    <canvas id="grid" width="640" height="640" aria-label="Cellular automaton grid"></canvas>
+    <div class="row">
+      <button id="play" class="on">Run</button>
+      <button id="stepb">Step</button>
+      <button id="rand">Random fill</button>
+      <button id="clear">Clear</button>
+      <label>Density <input id="dens" type="range" min="5" max="60" value="35"><span id="densv">35%</span></label>
+      <label>Speed <input id="speed" type="range" min="1" max="60" value="15"></label>
+      <label>Noise <input id="noise" type="range" min="0" max="100" value="0"><span id="noisev">0</span></label>
+    </div>
+    <div class="row" id="stamps"><span style="color:var(--mute)">Stamp on click:</span></div>
+    <div class="stats"><span>generation <b id="gen">0</b></span><span>population <b id="pop">0</b></span><span>density <b id="den">0%</b></span></div>
+    <canvas id="spark" width="600" height="56"></canvas>
+  </section>
+
+  <aside class="box side">
+    <h3 id="rulename">B3/S23</h3>
+    <p style="margin:.2rem 0 .8rem;font-size:.9rem;color:var(--mute)">Click a number to turn it on or off. A dead cell is born, or a live cell survives, when exactly that many neighbours are alive.</p>
+    <h3>Birth</h3><div class="counts" id="bc"></div>
+    <h3>Survival</h3><div class="counts" id="sc"></div>
+    <h3>Presets</h3>
+    <div class="row" id="presets" style="margin-top:.4rem"></div>
+    <h3 style="margin-top:1.2rem">Test this rule</h3>
+    <p style="margin:.2rem 0;font-size:.9rem;color:var(--mute)">Runs 20 random starts of 300 steps on a 48×48 grid at the density set on the left.</p>
+    <button id="test">Run 20 seeds</button>
+    <div id="out"></div>
+  </aside>
+</div>
+
+<h2>How runs are classified</h2>
+<dl>
+<dt>extinct</dt><dd>No live cells left at the end.</dd>
+<dt>saturated</dt><dd>More than 85% of cells alive over the last 60 steps.</dd>
+<dt>stable</dt><dd>Population exactly constant over the last 60 steps.</dd>
+<dt>periodic</dt><dd>Population exactly repeats with a period of 20 or less.</dd>
+<dt>active</dt><dd>Anything else: gliders in transit, growth fronts, disordered churn.</dd>
+</dl>
+
+<h2>Results</h2>
+<p class="sub">Figures come from <code>experiments_v2.py</code>. Put the <code>fig_v2</code> folder next to this file so the images load.</p>
+<div class="figs" style="margin-top:1rem">
+<figure><img src="fig_v2/B1_density_vs_noise.png" alt="Final density against noise probability for four rules"><figcaption>Final density against noise probability. Day&amp;Night shows the sharpest change, near 1–3% noise.</figcaption></figure>
+<figure><img src="fig_v2/A1_tally_3_vs_20.png" alt="Rule tally with 3 and 20 seeds"><figcaption>Using 20 seeds instead of 3 changed the label of only 2 of 100 rules.</figcaption></figure>
+<figure><img src="fig_v2/A2_per_rule_distribution.png" alt="Outcome distribution per rule"><figcaption>Outcome mix for each of the 100 rules across 20 starts.</figcaption></figure>
+<figure><img src="fig_v2/C1_pattern_density_vs_noise.png" alt="Seeded patterns against an empty-grid control under noise"><figcaption>Seeded patterns against an empty-grid control. Above roughly 3% noise they are indistinguishable.</figcaption></figure>
+</div>
+<footer>https://github.com/PrakSin12/EmergentComplexity/new/main</footer>
+</main>
+
+<script>
+const N=80, C=8, cv=document.getElementById('grid'), cx=cv.getContext('2d');
+let g=new Uint8Array(N*N), B=new Set([3]), S=new Set([2,3]), gen=0, running=true, last=0, hist=[];
+const $=id=>document.getElementById(id);
+const PRESETS={'Life':[[3],[2,3]],'HighLife':[[3,6],[2,3]],'Seeds':[[2],[]],'Day&Night':[[3,6,7,8],[3,4,6,7,8]],'Maze':[[3],[1,2,3,4,5]],'Random rule':null};
+const STAMPS={'Draw':null,
+ 'Glider':['.X.','..X','XXX'],
+ 'R-pentomino':['.XX','XX.','.X.'],
+ 'Replicator (HighLife)':['..XXX','.X..X','X...X','X..X.','XXX..']};
+let stamp=null;
+
+function step(grid,Bs,Ss,n,noise){
+  const out=new Uint8Array(n*n);
+  for(let y=0;y<n;y++){const ym=((y+n-1)%n)*n,y0=y*n,yp=((y+1)%n)*n;
+    for(let x=0;x<n;x++){const xm=(x+n-1)%n,xp=(x+1)%n;
+      const c=grid[ym+xm]+grid[ym+x]+grid[ym+xp]+grid[y0+xm]+grid[y0+xp]+grid[yp+xm]+grid[yp+x]+grid[yp+xp];
+      out[y0+x]=grid[y0+x]?Ss.has(c):Bs.has(c);}}
+  if(noise>0)for(let i=0;i<out.length;i++)if(Math.random()<noise)out[i]^=1;
+  return out;
+}
+const noiseP=()=>{const v=+$('noise').value;return v?Math.pow(10,-4+v/100*3.3):0}; // 1e-4 .. ~0.2
+function draw(){
+  cx.fillStyle='#221c13';cx.fillRect(0,0,640,640);cx.fillStyle='#ffb000';
+  let p=0;for(let i=0;i<g.length;i++)if(g[i]){p++;cx.fillRect((i%N)*C,((i/N)|0)*C,C-1,C-1);}
+  $('gen').textContent=gen;$('pop').textContent=p;$('den').textContent=(p/g.length*100).toFixed(1)+'%';
+  hist.push(p/g.length);if(hist.length>600)hist.shift();spark();
+}
+function spark(){const s=$('spark').getContext('2d');s.clearRect(0,0,600,56);s.strokeStyle='#4fd6c4';s.beginPath();
+  const m=Math.max(.05,...hist);hist.forEach((v,i)=>{const x=i/Math.max(1,hist.length-1)*600,y=54-v/m*50;i?s.lineTo(x,y):s.moveTo(x,y)});s.stroke();}
+function tick(t){if(running&&t-last>1000/+$('speed').value){last=t;g=step(g,B,S,N,noiseP());gen++;draw();}requestAnimationFrame(tick);}
+
+function randFill(){const d=+$('dens').value/100;for(let i=0;i<g.length;i++)g[i]=Math.random()<d?1:0;gen=0;hist=[];draw();}
+function cellAt(e){const r=cv.getBoundingClientRect();return[Math.floor((e.clientX-r.left)/r.width*N),Math.floor((e.clientY-r.top)/r.height*N)];}
+let paint=null;
+cv.addEventListener('pointerdown',e=>{const[x,y]=cellAt(e);
+  if(stamp){stamp.forEach((row,j)=>[...row].forEach((ch,i)=>{if(ch==='X')g[((y+j)%N)*N+(x+i)%N]=1}));draw();return;}
+  paint=g[y*N+x]?0:1;g[y*N+x]=paint;cv.setPointerCapture(e.pointerId);draw();});
+cv.addEventListener('pointermove',e=>{if(paint===null)return;const[x,y]=cellAt(e);if(x>=0&&y>=0&&x<N&&y<N){g[y*N+x]=paint;draw();}});
+addEventListener('pointerup',()=>paint=null);
+
+function label(){$('rulename').textContent='B'+[...B].sort().join('')+'/S'+[...S].sort().join('');}
+function buildCounts(id,set,cls){const el=$(id);el.innerHTML='';for(let n=0;n<=8;n++){const b=document.createElement('button');b.textContent=n;b.setAttribute('aria-pressed',set.has(n));
+  b.className=(set.has(n)?'on ':'')+cls;b.onclick=()=>{set.has(n)?set.delete(n):set.add(n);buildCounts(id,set,cls);label();};el.appendChild(b);}}
+function setRule(b,s){B=new Set(b);S=new Set(s);buildCounts('bc',B,'');buildCounts('sc',S,'s');label();}
+function randomRule(){const p=()=>[0,1,2,3,4,5,6,7,8].filter(()=>Math.random()<.35);return[p(),p()];}
+Object.entries(PRESETS).forEach(([k,v])=>{const b=document.createElement('button');b.textContent=k;
+  b.onclick=()=>{const r=v||randomRule();setRule(r[0],r[1]);};$('presets').appendChild(b);});
+Object.entries(STAMPS).forEach(([k,v])=>{const b=document.createElement('button');b.textContent=k;if(!v)b.className='on';
+  b.onclick=()=>{stamp=v;[...$('stamps').querySelectorAll('button')].forEach(x=>x.className='');b.className='on';};$('stamps').appendChild(b);});
+
+$('play').onclick=()=>{running=!running;$('play').textContent=running?'Run':'Paused';$('play').className=running?'on':'';};
+$('stepb').onclick=()=>{g=step(g,B,S,N,noiseP());gen++;draw();};
+$('rand').onclick=randFill;
+$('clear').onclick=()=>{g.fill(0);gen=0;hist=[];draw();};
+$('dens').oninput=()=>$('densv').textContent=$('dens').value+'%';
+$('noise').oninput=()=>{const p=noiseP();$('noisev').textContent=p?(p*100).toPrecision(2)+'%':'0';};
+
+// ---- batch test with the documented classifier ----
+function classify(p,cells){const T=p.length,t=p.slice(-60);
+  if(p[T-1]===0)return'extinct';
+  if(t.reduce((a,b)=>a+b,0)/t.length>.85*cells)return'saturated';
+  if(Math.max(...t)===Math.min(...t))return'stable';
+  for(let k=1;k<=20;k++){let ok=true;for(let i=k;i<t.length;i++)if(t[i]!==t[i-k]){ok=false;break;}if(ok)return'periodic';}
+  return'active';}
+const COL={extinct:'#ff6b57',stable:'#4fd6c4',periodic:'#ffb000',active:'#7a7a7a',saturated:'#c98cff'};
+$('test').onclick=()=>{const o=$('out');o.textContent='Running…';
+  setTimeout(()=>{const n=48,d=+$('dens').value/100,cnt={extinct:0,stable:0,periodic:0,active:0,saturated:0};let fd=0;
+    for(let k=0;k<20;k++){let h=new Uint8Array(n*n);for(let i=0;i<h.length;i++)h[i]=Math.random()<d?1:0;const pops=[];
+      for(let t=0;t<300;t++){pops.push(h.reduce((a,b)=>a+b,0));h=step(h,B,S,n,0);}
+      cnt[classify(pops,n*n)]++;fd+=pops.slice(-60).reduce((a,b)=>a+b,0)/60/(n*n);}
+    o.innerHTML=$('rulename').textContent+'<div class="bar">'+Object.keys(cnt).map(c=>`<i style="width:${cnt[c]*5}%;background:${COL[c]}"></i>`).join('')+'</div>'+
+      Object.keys(cnt).filter(c=>cnt[c]).map(c=>`<span class="sw" style="background:${COL[c]}"></span>${c} ${cnt[c]}/20`).join('<br>')+
+      `<br>mean final density ${(fd/20*100).toFixed(1)}%`;},30);};
+
+setRule([3],[2,3]);randFill();requestAnimationFrame(tick);
+</script>
+</body>
+</html>
