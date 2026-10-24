@@ -1,5 +1,4 @@
 """
-experiments_v2.py -- revisions responding to George's feedback.
   1. Explicit, documented classifier definitions (CLASSIFIER_DOC below).
   2. 20 seeds per rule instead of 3, plus a comparison of 3-seed vs 20-seed conclusions.
   3. Graded measures (mean density over a final window) instead of "population > 0".
@@ -17,17 +16,6 @@ os.makedirs(OUT, exist_ok=True)
 rng = np.random.default_rng(2026)
 
 CLASSIFIER_DOC = """
-All labels use the population series pop[t] (live-cell count) of one run of T=300 steps
-on a 48x48 torus, started from i.i.d. 35% random noise. TAIL = last 60 generations.
-  extinct    : pop[T-1] == 0.
-  saturated  : mean tail density > 85%.
-  stable     : pop is exactly constant over the tail (still lifes / everything frozen).
-  periodic   : not stable, but pop is exactly periodic over the tail with some period p <= 20
-               (e.g. blinkers/pulsars everywhere, or a rule with a global oscillation).
-  active     : none of the above -- population keeps fluctuating non-periodically
-               (gliders still travelling, growth fronts, disordered / chaotic churn).
-Caveat: this is a population-only proxy; two different grids can share a population series.
-"""
 
 # ---------- core CA ----------
 def make_tables(birth, survive):
